@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/markdaws/go-effects/pkg/effects"
+	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 )
 
@@ -18,7 +19,18 @@ func Convert(input, output string, cOpts ...ConvertOption) error {
 
 	pixelated := "pixelated.png"
 
-	img, err := effects.LoadImage(input)
+	// First resize the image to 1280,1280 so that we can apply the effects
+	inputImage, err := decode(input)
+	if err != nil {
+		return errors.Errorf("decoding input image: %s", input)
+	}
+	resizedImage := resize.Resize(1280, 1280, inputImage, resize.Lanczos3)
+	resized := "resized" + path.Ext(input)
+	if err := encode(resized, resizedImage); err != nil {
+		return errors.Errorf("writing resized image to %s", resized)
+	}
+
+	img, err := effects.LoadImage(resized)
 	if err != nil {
 		return errors.Errorf("loading image %s: %v", input, err)
 	}
