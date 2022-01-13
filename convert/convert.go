@@ -12,6 +12,7 @@ import (
 	"github.com/markdaws/go-effects/pkg/effects"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+	"github.com/spudtrooper/goutil/io"
 )
 
 func Convert(input, output string, cOpts ...ConvertOption) error {
@@ -96,6 +97,9 @@ func Convert(input, output string, cOpts ...ConvertOption) error {
 		outputImg = resize.Resize(opts.ResizeWidth(), opts.ResizeHeight(), outputImg, resize.Lanczos3)
 	}
 
+	if _, err := io.MkdirAll(path.Dir(output)); err != nil {
+		return errors.Errorf("making directory for %s", output)
+	}
 	if err := encode(output, outputImg); err != nil {
 		return errors.Errorf("encoding image to %s: %v", output, err)
 	}
