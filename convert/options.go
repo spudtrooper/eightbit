@@ -1,4 +1,4 @@
-package eightbit
+package convert
 
 // genopts --opt_type=ConvertOption --prefix=Convert --outfile=eightbit/options.go 'blockSize:int' 'resizeWidth:uint' 'resizeHeight:uint' 'noCleanup'
 

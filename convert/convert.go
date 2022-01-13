@@ -1,4 +1,4 @@
-package eightbit
+package convert
 
 import (
 	"image"

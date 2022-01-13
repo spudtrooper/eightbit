@@ -4,7 +4,7 @@ import (
 	"flag"
 
 	"github.com/pkg/errors"
-	"github.com/spudtrooper/eightbit/eightbit"
+	"github.com/spudtrooper/eightbit/convert"
 	"github.com/spudtrooper/eightbit/gitversion"
 	"github.com/spudtrooper/goutil/check"
 )
@@ -27,10 +27,10 @@ func realMain() error {
 	if *output == "" {
 		return errors.Errorf("--output required")
 	}
-	if err := eightbit.Convert(*input, *output,
-		eightbit.ConvertBlockSize(*blockSize),
-		eightbit.ConvertResizeWidth(uint(*resizeHeight)),
-		eightbit.ConvertResizeHeight(uint(*resizeWidth)),
+	if err := convert.Convert(*input, *output,
+		convert.ConvertBlockSize(*blockSize),
+		convert.ConvertResizeWidth(uint(*resizeHeight)),
+		convert.ConvertResizeHeight(uint(*resizeWidth)),
 	); err != nil {
 		return err
 	}
