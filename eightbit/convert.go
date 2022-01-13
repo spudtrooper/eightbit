@@ -17,7 +17,7 @@ import (
 func Convert(input, output string, cOpts ...ConvertOption) error {
 	opts := MakeConvertOptions(cOpts...)
 
-	pixelated := "pixelated.png"
+	pixelated := "pixelated.jpg"
 
 	// First resize the image to 1280,1280 so that we can apply the effects
 	inputImage, err := decode(input)
@@ -81,13 +81,19 @@ func Convert(input, output string, cOpts ...ConvertOption) error {
 		return cols
 	}
 
+	var outputImg image.Image
 	palette := color.Palette(colorsForPalette())
-	outputImg := image.NewPaletted(image.Rect(0, 0, pixelatedEffectsImg.Width, pixelatedEffectsImg.Height), palette)
+	palettedImg := image.NewPaletted(image.Rect(0, 0, pixelatedEffectsImg.Width, pixelatedEffectsImg.Height), palette)
 	for y := pixelatedImg.Bounds().Min.Y; y < pixelatedImg.Bounds().Max.Y; y++ {
 		for x := pixelatedImg.Bounds().Min.X; x < pixelatedImg.Bounds().Max.X; x++ {
 			c := pixelatedImg.At(x, y)
-			outputImg.Set(x, y, c)
+			palettedImg.Set(x, y, c)
 		}
+	}
+	outputImg = palettedImg
+
+	if opts.ResizeWidth() != 0 && opts.ResizeHeight() != 0 {
+		outputImg = resize.Resize(opts.ResizeWidth(), opts.ResizeHeight(), outputImg, resize.Lanczos3)
 	}
 
 	if err := encode(output, outputImg); err != nil {

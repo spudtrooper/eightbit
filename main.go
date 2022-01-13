@@ -12,6 +12,8 @@ var (
 	input     = flag.String("input", "", "input image")
 	output    = flag.String("output", "", "output image")
 	blockSize = flag.Int("block_size", 16, "blocksize for downsampling")
+	resizeHeight = flag.Int("resize_height", 0, "height in pixels of the final image; must be used with --resize_width")
+	resizeWidth = flag.Int("resize_width", 0, "width in pixels of the final image; must be used with --resize_height")
 )
 
 func realMain() error {
@@ -21,7 +23,11 @@ func realMain() error {
 	if *output == "" {
 		return errors.Errorf("--output required")
 	}
-	if err := eightbit.Convert(*input, *output, eightbit.ConvertBlockSize(*blockSize)); err != nil {
+	if err := eightbit.Convert(*input, *output, 
+		eightbit.ConvertBlockSize(*blockSize), 
+		eightbit.ConvertBlockSize(*blockSize), 
+		eightbit.ConvertBlockSize(*blockSize),
+		); err != nil {
 		return err
 	}
 	return nil
