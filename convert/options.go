@@ -1,6 +1,6 @@
 package convert
 
-//go:generate genopts --opt_type=ConvertOption --prefix=Convert --outfile=convert/options.go "blockSize:int" "resizeWidth:uint" "resizeHeight:uint"
+//go:generate genopts --opt_type=ConvertOption --prefix=Convert --outfile=options.go "blockSize:int" "resizeWidth:uint" "resizeHeight:uint"
 
 type ConvertOption func(*convertOptionImpl)
 
