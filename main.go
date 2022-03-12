@@ -15,6 +15,7 @@ var (
 	blockSize    = flag.Int("block_size", 16, "blocksize for downsampling")
 	resizeHeight = flag.Int("resize_height", 0, "height in pixels of the final image; must be used with --resize_width")
 	resizeWidth  = flag.Int("resize_width", 0, "width in pixels of the final image; must be used with --resize_height")
+	force        = flag.Bool("force", false, "overwrite existing files")
 )
 
 func realMain() error {
@@ -31,6 +32,7 @@ func realMain() error {
 		convert.ConvertBlockSize(*blockSize),
 		convert.ConvertResizeWidth(uint(*resizeHeight)),
 		convert.ConvertResizeHeight(uint(*resizeWidth)),
+		convert.ConvertForce(*force),
 	); err != nil {
 		return err
 	}

@@ -2,96 +2,40 @@ package convert
 
 import (
 	"image"
-	"image/color"
 	"image/jpeg"
 	"image/png"
 	"os"
 	"path"
 	"strings"
 
-	"github.com/markdaws/go-effects/pkg/effects"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 	"github.com/spudtrooper/goutil/io"
 )
 
+type Converter func(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error)
+
 func Convert(input, output string, cOpts ...ConvertOption) error {
 	opts := MakeConvertOptions(cOpts...)
 
-	pixelated := "pixelated.jpg"
+	if !opts.Force() && io.FileExists(output) {
+		return errors.Errorf("%s exists. pass --force to write anyway", output)
+	}
 
-	// First resize the image to 1280,1280 so that we can apply the effects
 	inputImage, err := decode(input)
 	if err != nil {
 		return errors.Errorf("decoding input image: %s", input)
 	}
-	resizedImage := resize.Resize(1280, 1280, inputImage, resize.Lanczos3)
-	resized := "resized" + path.Ext(input)
-	if err := encode(resized, resizedImage); err != nil {
-		return errors.Errorf("writing resized image to %s", resized)
+
+	converter := opts.Converter()
+	if converter == nil {
+		converter = defaultConverter
 	}
 
-	img, err := effects.LoadImage(resized)
+	outputImg, err := converter(input, inputImage, opts)
 	if err != nil {
-		return errors.Errorf("loading image %s: %v", input, err)
+		return errors.Errorf("converting image: %v", err)
 	}
-	pixelatedEffectsImg, err := effects.NewPixelate(opts.BlockSize()).Apply(img, 1)
-	if err != nil {
-		return errors.Errorf("pixelating image %s: %v", input, err)
-	}
-
-	saveOpts := effects.SaveOpts{}
-	if err := pixelatedEffectsImg.Save(pixelated, saveOpts); err != nil {
-		return errors.Errorf("outputting image %s to %s: %v", input, output, err)
-	}
-
-	pixelatedImg, err := decode(pixelated)
-	if err != nil {
-		return errors.Errorf("encoding pixelated image %s: %v", pixelated, err)
-	}
-
-	colorsForPalette := func() []color.Color {
-		var cols []color.Color
-		cols = append(cols,
-			color.NRGBA{uint8(0xFF), uint8(0xFF), uint8(0xFF), 255}, // White
-			color.NRGBA{uint8(0xC0), uint8(0xC0), uint8(0xC0), 255}, // Silver
-			color.NRGBA{uint8(0x80), uint8(0x80), uint8(0x80), 255}, // Gray
-			color.NRGBA{uint8(0x00), uint8(0x00), uint8(0x00), 255}, // Black
-			color.NRGBA{uint8(0xFF), uint8(0x00), uint8(0x00), 255}, // Red
-			color.NRGBA{uint8(0x80), uint8(0x00), uint8(0x00), 255}, // Maroon
-			color.NRGBA{uint8(0xFF), uint8(0xFF), uint8(0x00), 255}, // Yellow
-			color.NRGBA{uint8(0x80), uint8(0x80), uint8(0x00), 255}, // Olive
-			color.NRGBA{uint8(0x00), uint8(0xFF), uint8(0x00), 255}, // Lime
-			color.NRGBA{uint8(0x00), uint8(0x80), uint8(0x00), 255}, // Green
-			color.NRGBA{uint8(0x00), uint8(0xFF), uint8(0xFF), 255}, // Aqua
-			color.NRGBA{uint8(0x00), uint8(0x80), uint8(0x80), 255}, // Teal
-			color.NRGBA{uint8(0x00), uint8(0x00), uint8(0xFF), 255}, // Blue
-			color.NRGBA{uint8(0x00), uint8(0x00), uint8(0x80), 255}, // Navy
-			color.NRGBA{uint8(0xFF), uint8(0x00), uint8(0xFF), 255}, // Fuchsia
-			color.NRGBA{uint8(0x80), uint8(0x00), uint8(0x80), 255}, // Purple
-		)
-		newComps := []int{0x20, 0x60, 0xa0}
-		for _, r := range newComps {
-			for _, g := range newComps {
-				for _, b := range newComps {
-					c := color.RGBA{uint8(r), uint8(g), uint8(b), 255}
-					cols = append(cols, c)
-				}
-			}
-		}
-		return cols
-	}
-
-	var outputImg image.Image
-	palette := color.Palette(colorsForPalette())
-	palettedImg := image.NewPaletted(image.Rect(0, 0, pixelatedEffectsImg.Width, pixelatedEffectsImg.Height), palette)
-	for y := pixelatedImg.Bounds().Min.Y; y < pixelatedImg.Bounds().Max.Y; y++ {
-		for x := pixelatedImg.Bounds().Min.X; x < pixelatedImg.Bounds().Max.X; x++ {
-			c := pixelatedImg.At(x, y)
-			palettedImg.Set(x, y, c)
-		}
-	}
-	outputImg = palettedImg
 
 	if opts.ResizeWidth() != 0 && opts.ResizeHeight() != 0 {
 		outputImg = resize.Resize(opts.ResizeWidth(), opts.ResizeHeight(), outputImg, resize.Lanczos3)
@@ -103,6 +47,8 @@ func Convert(input, output string, cOpts ...ConvertOption) error {
 	if err := encode(output, outputImg); err != nil {
 		return errors.Errorf("encoding image to %s: %v", output, err)
 	}
+
+	log.Printf("converted %s to %s", input, output)
 
 	return nil
 }
