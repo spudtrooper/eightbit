@@ -3,6 +3,7 @@ package convert
 import (
 	"image"
 	"image/color"
+	"os"
 	"path"
 
 	"github.com/markdaws/go-effects/pkg/effects"
@@ -11,11 +12,19 @@ import (
 )
 
 func defaultConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
-	pixelated := "pixelated.jpg"
+	pixelated := input + "-pixelated.jpg"
+	resized := input + "-resized" + path.Ext(input)
+	defer func() {
+		if err := os.Remove(pixelated); err != nil {
+			log.Fatalf("trying to delete pixelated: %s: %v", pixelated, err)
+		}
+		if err := os.Remove(resized); err != nil {
+			log.Fatalf("trying to delete resized: %s: %v", resized, err)
+		}
+	}()
 
 	// First resize the image to 1280,1280 so that we can apply the effects
 	resizedImage := resize.Resize(1280, 1280, inputImage, resize.Lanczos3)
-	resized := "resized" + path.Ext(input)
 	if err := encode(resized, resizedImage); err != nil {
 		return nil, errors.Errorf("writing resized image to %s", resized)
 	}
