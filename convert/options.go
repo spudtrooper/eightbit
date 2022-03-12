@@ -1,6 +1,6 @@
 package convert
 
-//go:generate genopts --opt_type=ConvertOption --prefix=Convert --outfile=convert/options.go "blockSize:int" "resizeWidth:uint" "resizeHeight:uint" "converter:Converter" "force:bool"
+//go:generate genopts --prefix=Convert --outfile=convert/options.go "blockSize:int" "resizeWidth:uint" "resizeHeight:uint" "converter:Converter" "force:bool"
 
 type ConvertOption func(*convertOptionImpl)
 
@@ -17,10 +17,20 @@ func ConvertBlockSize(blockSize int) ConvertOption {
 		opts.blockSize = blockSize
 	}
 }
+func ConvertBlockSizeFlag(blockSize *int) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.blockSize = *blockSize
+	}
+}
 
 func ConvertResizeWidth(resizeWidth uint) ConvertOption {
 	return func(opts *convertOptionImpl) {
 		opts.resizeWidth = resizeWidth
+	}
+}
+func ConvertResizeWidthFlag(resizeWidth *uint) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.resizeWidth = *resizeWidth
 	}
 }
 
@@ -29,16 +39,31 @@ func ConvertResizeHeight(resizeHeight uint) ConvertOption {
 		opts.resizeHeight = resizeHeight
 	}
 }
+func ConvertResizeHeightFlag(resizeHeight *uint) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.resizeHeight = *resizeHeight
+	}
+}
 
 func ConvertConverter(converter Converter) ConvertOption {
 	return func(opts *convertOptionImpl) {
 		opts.converter = converter
 	}
 }
+func ConvertConverterFlag(converter *Converter) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.converter = *converter
+	}
+}
 
 func ConvertForce(force bool) ConvertOption {
 	return func(opts *convertOptionImpl) {
 		opts.force = force
+	}
+}
+func ConvertForceFlag(force *bool) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.force = *force
 	}
 }
 
