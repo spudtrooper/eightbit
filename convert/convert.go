@@ -1,25 +1,33 @@
 package convert
 
 import (
+	"fmt"
 	"image"
 	"image/jpeg"
 	"image/png"
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+	"github.com/spudtrooper/goutil/hist"
 	"github.com/spudtrooper/goutil/io"
+	"github.com/spudtrooper/goutil/or"
 )
+
+var AllConverters = []string{"pixelate", "overlap_mean", "overlap_median"}
 
 type Converter func(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error)
 
-func Convert(input, output string, cOpts ...ConvertOption) error {
+func Convert(input string, cOpts ...ConvertOption) error {
 	opts := MakeConvertOptions(cOpts...)
 
-	if !opts.Force() && io.FileExists(output) {
-		return errors.Errorf("%s exists. pass --force to write anyway", output)
+	switch ext := path.Ext(input); ext {
+	case ".png", ".jpg", ".jpeg":
+	default:
+		return errors.Errorf("invalid input image type: %s", input)
 	}
 
 	inputImage, err := decode(input)
@@ -27,13 +35,54 @@ func Convert(input, output string, cOpts ...ConvertOption) error {
 		return errors.Errorf("decoding input image: %s", input)
 	}
 
-	converter := opts.Converter()
-	if converter == nil {
-		converter = pixelatedConverter
-		// converter = overlapConverter
+	if opts.ColorHist() {
+		colorHist := hist.MakeHistogram()
+		for y := inputImage.Bounds().Min.Y; y < inputImage.Bounds().Max.Y; y++ {
+			for x := inputImage.Bounds().Min.X; x < inputImage.Bounds().Max.X; x++ {
+				c := inputImage.At(x, y)
+				colorHist.Add(colorName(c), 1)
+			}
+		}
+		fmt.Println("Printing color histogram...")
+		fmt.Println(hist.HistString(colorHist))
 	}
 
-	outputImg, err := converter(input, inputImage, opts)
+	converters := opts.Converters()
+	if len(converters) == 1 && converters[0] == "all" {
+		converters = AllConverters
+	}
+	if len(converters) == 0 {
+		if opts.ColorHist() {
+			return nil
+		}
+		return errors.Errorf("you must specify at least one converter")
+	}
+	if len(converters) > 1 && opts.OutputFile() != "" {
+		return errors.Errorf("you cannot specify an output with >1 converter")
+	}
+
+	for _, c := range converters {
+		output := or.String(opts.OutputFile(), makeOutput(input, opts.OutputDir(), c))
+		if !opts.Force() && io.FileExists(output) {
+			return errors.Errorf("%s exists. pass --force to write anyway", output)
+		}
+		if err := convertOne(inputImage, input, output, c, opts); err != nil {
+			return errors.Errorf("converting %s to %s: %v", input, output)
+		}
+	}
+
+	return nil
+}
+
+func convertOne(inputImage image.Image, input, output string, converterName string, opts ConvertOptions) error {
+	start := time.Now()
+
+	conv := makeConverter(converterName)
+	if conv == nil {
+		return errors.Errorf("invalid converter string: %s", converterName)
+	}
+
+	outputImg, err := conv(input, inputImage, opts)
 	if err != nil {
 		return errors.Errorf("converting image: %v", err)
 	}
@@ -52,8 +101,27 @@ func Convert(input, output string, cOpts ...ConvertOption) error {
 		return errors.Errorf("encoding image to %s: %v", output, err)
 	}
 
-	log.Printf("converted %s to %s", input, output)
+	log.Printf("converted %s to %s in %v", input, output, time.Since(start))
 
+	return nil
+}
+
+func makeOutput(input, outputDir, converter string) string {
+	dir := or.String(outputDir, path.Dir(input))
+	ext := path.Ext(input)
+	base := strings.Replace(path.Base(input), ext, "", 1)
+	return path.Join(dir, base+"-"+converter+ext)
+}
+
+func makeConverter(s string) Converter {
+	switch s {
+	case "pixelate":
+		return pixelatedConverter
+	case "overlap_mean":
+		return overlapMeanConverter
+	case "overlap_median":
+		return overlapMedianConverter
+	}
 	return nil
 }
 
@@ -73,7 +141,7 @@ func encode(output string, outputImg image.Image) error {
 	}
 
 	if err := out.Close(); err != nil {
-		return errors.Errorf("closing %s: %v", output)
+		return errors.Errorf("closing %s: %v", output, err)
 	}
 
 	return nil

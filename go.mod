@@ -2,7 +2,10 @@ module github.com/spudtrooper/eightbit
 
 go 1.17
 
+replace github.com/spudtrooper/goutil => ../goutil
+
 require (
+	github.com/jyotiska/go-webcolors v0.0.0-20150821045656-d3232ed69418
 	github.com/markdaws/go-effects v0.0.0-20200131234403-fdc64c8dc0f7
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pkg/errors v0.9.1

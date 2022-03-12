@@ -6,8 +6,57 @@ import (
 	"math/rand"
 	"sort"
 
+	"github.com/spudtrooper/goutil/hist"
 	"github.com/thomaso-mirodin/intmath/intgr"
 )
+
+func overlapMeanConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
+	return genericOverlap(input, inputImage, opts, meanColor)
+}
+
+func overlapMedianConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
+	return genericOverlap(input, inputImage, opts, medianColor)
+}
+
+type colorAggrFn func(inputImage image.Image, startY, endY, startX, endX int) color.Color
+
+func genericOverlap(input string, inputImage image.Image, opts ConvertOptions, aggr colorAggrFn) (image.Image, error) {
+	minY, maxY := inputImage.Bounds().Min.Y, inputImage.Bounds().Max.Y
+	minX, maxX := inputImage.Bounds().Min.X, inputImage.Bounds().Max.X
+
+	outputImage := image.NewRGBA(image.Rect(minX, minY, maxX, maxY))
+
+	const inc = 10
+
+	colorHist := hist.MakeHistogram()
+
+	for y := minY; y < maxY; y += inc {
+		for x := minX; x < maxX; x += inc {
+			startY := intgr.Max(y-inc, minY)
+			endY := intgr.Min(y+inc, maxY)
+			startX := intgr.Max(x-inc, minX)
+			endX := intgr.Min(x+inc, maxX)
+			mc := aggr(inputImage, startY, endY, startX, endX)
+			colorHist.Add(colorName(mc), 1)
+			mr, mg, mb, ma := mc.RGBA()
+			for y := startY; y < endY; y++ {
+				for x := startX; x < endX; x++ {
+					c := color.RGBA{
+						R: uint8(mr + uint32(30-rand.Int()%60)),
+						G: uint8(mg + uint32(30-rand.Int()%60)),
+						B: uint8(mb + uint32(30-rand.Int()%60)),
+						A: uint8(ma + uint32(30-rand.Int()%60)),
+					}
+					outputImage.Set(x, y, c)
+				}
+			}
+		}
+	}
+
+	log.Println("Printing color histogram...\n" + hist.HistString(colorHist))
+
+	return outputImage, nil
+}
 
 func medianColor(inputImage image.Image, startY, endY, startX, endX int) color.Color {
 	var rs, gs, bs, as []int
@@ -78,34 +127,4 @@ func meanColor(inputImage image.Image, startY, endY, startX, endX int) color.Col
 	}
 
 	return mean
-}
-
-func overlapConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
-	minY, maxY := inputImage.Bounds().Min.Y, inputImage.Bounds().Max.Y
-	minX, maxX := inputImage.Bounds().Min.X, inputImage.Bounds().Max.X
-
-	outputImage := image.NewRGBA(image.Rect(minX, minY, maxX, maxY))
-
-	const inc = 1
-
-	for y := minY; y < maxY; y += inc {
-		for x := minX; x < maxX; x += inc {
-			startY, endY, startX, endX := intgr.Max(y-inc, minY), intgr.Min(y+inc, maxY), intgr.Max(x-inc, minX), intgr.Min(x+inc, maxX)
-			mc := medianColor(inputImage, startY, endY, startX, endX)
-			mr, mg, mb, ma := mc.RGBA()
-			for y := startY; y < endY; y++ {
-				for x := startX; x < endX; x++ {
-					c := color.RGBA{
-						R: uint8(mr + uint32(30-rand.Int()%60)),
-						G: uint8(mg + uint32(30-rand.Int()%60)),
-						B: uint8(mb + uint32(30-rand.Int()%60)),
-						A: uint8(ma + uint32(30-rand.Int()%60)),
-					}
-					outputImage.Set(x, y, c)
-				}
-			}
-		}
-	}
-	return outputImage, nil
-
 }

@@ -1,6 +1,6 @@
 package convert
 
-//go:generate genopts --prefix=Convert --outfile=convert/options.go "blockSize:int" "resizeWidth:uint" "resizeHeight:uint" "converter:Converter" "force:bool"
+//go:generate genopts --prefix=Convert --outfile=convert/convertoptions.go "blockSize:int" "resizeWidth:uint" "resizeHeight:uint" "force:bool" "converters:[]string" "outputDir:string" "outputFile:string" "colorHist:bool"
 
 type ConvertOption func(*convertOptionImpl)
 
@@ -8,8 +8,11 @@ type ConvertOptions interface {
 	BlockSize() int
 	ResizeWidth() uint
 	ResizeHeight() uint
-	Converter() Converter
 	Force() bool
+	Converters() []string
+	OutputDir() string
+	OutputFile() string
+	ColorHist() bool
 }
 
 func ConvertBlockSize(blockSize int) ConvertOption {
@@ -45,17 +48,6 @@ func ConvertResizeHeightFlag(resizeHeight *uint) ConvertOption {
 	}
 }
 
-func ConvertConverter(converter Converter) ConvertOption {
-	return func(opts *convertOptionImpl) {
-		opts.converter = converter
-	}
-}
-func ConvertConverterFlag(converter *Converter) ConvertOption {
-	return func(opts *convertOptionImpl) {
-		opts.converter = *converter
-	}
-}
-
 func ConvertForce(force bool) ConvertOption {
 	return func(opts *convertOptionImpl) {
 		opts.force = force
@@ -67,19 +59,69 @@ func ConvertForceFlag(force *bool) ConvertOption {
 	}
 }
 
+func ConvertConverters(converters []string) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.converters = converters
+	}
+}
+func ConvertConvertersFlag(converters *[]string) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.converters = *converters
+	}
+}
+
+func ConvertOutputDir(outputDir string) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.outputDir = outputDir
+	}
+}
+func ConvertOutputDirFlag(outputDir *string) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.outputDir = *outputDir
+	}
+}
+
+func ConvertOutputFile(outputFile string) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.outputFile = outputFile
+	}
+}
+func ConvertOutputFileFlag(outputFile *string) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.outputFile = *outputFile
+	}
+}
+
+func ConvertColorHist(colorHist bool) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.colorHist = colorHist
+	}
+}
+func ConvertColorHistFlag(colorHist *bool) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.colorHist = *colorHist
+	}
+}
+
 type convertOptionImpl struct {
 	blockSize    int
 	resizeWidth  uint
 	resizeHeight uint
-	converter    Converter
 	force        bool
+	converters   []string
+	outputDir    string
+	outputFile   string
+	colorHist    bool
 }
 
 func (c *convertOptionImpl) BlockSize() int       { return c.blockSize }
 func (c *convertOptionImpl) ResizeWidth() uint    { return c.resizeWidth }
 func (c *convertOptionImpl) ResizeHeight() uint   { return c.resizeHeight }
-func (c *convertOptionImpl) Converter() Converter { return c.converter }
 func (c *convertOptionImpl) Force() bool          { return c.force }
+func (c *convertOptionImpl) Converters() []string { return c.converters }
+func (c *convertOptionImpl) OutputDir() string    { return c.outputDir }
+func (c *convertOptionImpl) OutputFile() string   { return c.outputFile }
+func (c *convertOptionImpl) ColorHist() bool      { return c.colorHist }
 
 func makeConvertOptionImpl(opts ...ConvertOption) *convertOptionImpl {
 	res := &convertOptionImpl{}
