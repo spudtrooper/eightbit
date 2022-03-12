@@ -29,12 +29,16 @@ func Convert(input, output string, cOpts ...ConvertOption) error {
 
 	converter := opts.Converter()
 	if converter == nil {
-		converter = defaultConverter
+		converter = pixelatedConverter
+		// converter = overlapConverter
 	}
 
 	outputImg, err := converter(input, inputImage, opts)
 	if err != nil {
 		return errors.Errorf("converting image: %v", err)
+	}
+	if outputImg == nil {
+		return errors.Errorf("converting image returned nil image")
 	}
 
 	if opts.ResizeWidth() != 0 && opts.ResizeHeight() != 0 {

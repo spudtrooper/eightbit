@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func defaultConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
+func pixelatedConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
 	pixelated := input + "-pixelated.jpg"
 	resized := input + "-resized" + path.Ext(input)
 	defer func() {
