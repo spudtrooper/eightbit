@@ -1,11 +1,12 @@
 package convert
 
-//go:generate genopts --prefix=Convert --outfile=convert/convertoptions.go "blockSize:int" "resizeWidth:uint" "resizeHeight:uint" "force:bool" "converters:[]string" "outputDir:string" "outputFile:string" "colorHist:bool"
+//go:generate genopts --prefix=Convert --outfile=convert/convertoptions.go "blockSize:int" "pixelateBlockSize:int" "resizeWidth:uint" "resizeHeight:uint" "force:bool" "converters:[]string" "outputDir:string" "outputFile:string" "colorHist:bool"
 
 type ConvertOption func(*convertOptionImpl)
 
 type ConvertOptions interface {
 	BlockSize() int
+	PixelateBlockSize() int
 	ResizeWidth() uint
 	ResizeHeight() uint
 	Force() bool
@@ -23,6 +24,17 @@ func ConvertBlockSize(blockSize int) ConvertOption {
 func ConvertBlockSizeFlag(blockSize *int) ConvertOption {
 	return func(opts *convertOptionImpl) {
 		opts.blockSize = *blockSize
+	}
+}
+
+func ConvertPixelateBlockSize(pixelateBlockSize int) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.pixelateBlockSize = pixelateBlockSize
+	}
+}
+func ConvertPixelateBlockSizeFlag(pixelateBlockSize *int) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.pixelateBlockSize = *pixelateBlockSize
 	}
 }
 
@@ -104,24 +116,26 @@ func ConvertColorHistFlag(colorHist *bool) ConvertOption {
 }
 
 type convertOptionImpl struct {
-	blockSize    int
-	resizeWidth  uint
-	resizeHeight uint
-	force        bool
-	converters   []string
-	outputDir    string
-	outputFile   string
-	colorHist    bool
+	blockSize         int
+	pixelateBlockSize int
+	resizeWidth       uint
+	resizeHeight      uint
+	force             bool
+	converters        []string
+	outputDir         string
+	outputFile        string
+	colorHist         bool
 }
 
-func (c *convertOptionImpl) BlockSize() int       { return c.blockSize }
-func (c *convertOptionImpl) ResizeWidth() uint    { return c.resizeWidth }
-func (c *convertOptionImpl) ResizeHeight() uint   { return c.resizeHeight }
-func (c *convertOptionImpl) Force() bool          { return c.force }
-func (c *convertOptionImpl) Converters() []string { return c.converters }
-func (c *convertOptionImpl) OutputDir() string    { return c.outputDir }
-func (c *convertOptionImpl) OutputFile() string   { return c.outputFile }
-func (c *convertOptionImpl) ColorHist() bool      { return c.colorHist }
+func (c *convertOptionImpl) BlockSize() int         { return c.blockSize }
+func (c *convertOptionImpl) PixelateBlockSize() int { return c.pixelateBlockSize }
+func (c *convertOptionImpl) ResizeWidth() uint      { return c.resizeWidth }
+func (c *convertOptionImpl) ResizeHeight() uint     { return c.resizeHeight }
+func (c *convertOptionImpl) Force() bool            { return c.force }
+func (c *convertOptionImpl) Converters() []string   { return c.converters }
+func (c *convertOptionImpl) OutputDir() string      { return c.outputDir }
+func (c *convertOptionImpl) OutputFile() string     { return c.outputFile }
+func (c *convertOptionImpl) ColorHist() bool        { return c.colorHist }
 
 func makeConvertOptionImpl(opts ...ConvertOption) *convertOptionImpl {
 	res := &convertOptionImpl{}

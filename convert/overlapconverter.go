@@ -1,32 +1,44 @@
 package convert
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math/rand"
+	"path"
 	"sort"
+	"strings"
 
 	"github.com/spudtrooper/goutil/hist"
+	"github.com/spudtrooper/goutil/or"
 	"github.com/thomaso-mirodin/intmath/intgr"
 )
 
 func overlapMeanConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
-	return genericOverlap(input, inputImage, opts, meanColor)
+	return genericOverlap(input, inputImage, opts, meanColor, true)
 }
 
 func overlapMedianConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
-	return genericOverlap(input, inputImage, opts, medianColor)
+	return genericOverlap(input, inputImage, opts, medianColor, true)
+}
+
+func blockMeanConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
+	return genericOverlap(input, inputImage, opts, meanColor, false)
+}
+
+func blockMedianConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
+	return genericOverlap(input, inputImage, opts, medianColor, false)
 }
 
 type colorAggrFn func(inputImage image.Image, startY, endY, startX, endX int) color.Color
 
-func genericOverlap(input string, inputImage image.Image, opts ConvertOptions, aggr colorAggrFn) (image.Image, error) {
+func genericOverlap(input string, inputImage image.Image, opts ConvertOptions, aggr colorAggrFn, random bool) (image.Image, error) {
 	minY, maxY := inputImage.Bounds().Min.Y, inputImage.Bounds().Max.Y
 	minX, maxX := inputImage.Bounds().Min.X, inputImage.Bounds().Max.X
 
 	outputImage := image.NewRGBA(image.Rect(minX, minY, maxX, maxY))
 
-	const inc = 10
+	inc := or.Int(opts.BlockSize(), 10)
 
 	colorHist := hist.MakeHistogram()
 
@@ -41,11 +53,21 @@ func genericOverlap(input string, inputImage image.Image, opts ConvertOptions, a
 			mr, mg, mb, ma := mc.RGBA()
 			for y := startY; y < endY; y++ {
 				for x := startX; x < endX; x++ {
-					c := color.RGBA{
-						R: uint8(mr + uint32(30-rand.Int()%60)),
-						G: uint8(mg + uint32(30-rand.Int()%60)),
-						B: uint8(mb + uint32(30-rand.Int()%60)),
-						A: uint8(ma + uint32(30-rand.Int()%60)),
+					var c color.Color
+					if random {
+						c = color.RGBA{
+							R: uint8(mr + uint32(30-rand.Int()%60)),
+							G: uint8(mg + uint32(30-rand.Int()%60)),
+							B: uint8(mb + uint32(30-rand.Int()%60)),
+							A: uint8(ma + uint32(30-rand.Int()%60)),
+						}
+					} else {
+						c = color.RGBA{
+							R: uint8(mr),
+							G: uint8(mg),
+							B: uint8(mb),
+							A: uint8(ma),
+						}
 					}
 					outputImage.Set(x, y, c)
 				}
@@ -53,7 +75,9 @@ func genericOverlap(input string, inputImage image.Image, opts ConvertOptions, a
 		}
 	}
 
-	log.Println("Printing color histogram...\n" + hist.HistString(colorHist))
+	if opts.ColorHist() {
+		log.Println("Printing color histogram...\n" + hist.HistString(colorHist))
+	}
 
 	return outputImage, nil
 }
@@ -127,4 +151,43 @@ func meanColor(inputImage image.Image, startY, endY, startX, endX int) color.Col
 	}
 
 	return mean
+}
+
+func init() {
+	globalReg.Register(&pixelatedConverter{})
+}
+
+type overlapConverter struct {
+	name string
+	conv func(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error)
+}
+
+func (c *overlapConverter) Name() string { return c.name }
+func (c *overlapConverter) Convert(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
+	return c.conv(input, inputImage, opts)
+}
+
+func (c *overlapConverter) OutputFileName(input string, opts ConvertOptions) string {
+	ext := path.Ext(input)
+	base := strings.Replace(path.Base(input), ext, "", 1)
+	return fmt.Sprintf("%s-%s-%04d%s", base, c.Name(), opts.BlockSize(), ext)
+}
+
+func init() {
+	globalReg.Register(&overlapConverter{
+		name: "overlap_mean",
+		conv: overlapMeanConverter,
+	})
+	globalReg.Register(&overlapConverter{
+		name: "overlap_median",
+		conv: overlapMedianConverter,
+	})
+	globalReg.Register(&overlapConverter{
+		name: "block_mean",
+		conv: blockMeanConverter,
+	})
+	globalReg.Register(&overlapConverter{
+		name: "block_median",
+		conv: blockMedianConverter,
+	})
 }

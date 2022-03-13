@@ -1,25 +1,37 @@
 package convert
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/markdaws/go-effects/pkg/effects"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
 )
 
-func pixelatedConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
+type pixelatedConverter struct{}
+
+func (*pixelatedConverter) Name() string { return "pixelated" }
+
+func (c *pixelatedConverter) OutputFileName(input string, opts ConvertOptions) string {
+	ext := path.Ext(input)
+	base := strings.Replace(path.Base(input), ext, "", 1)
+	return fmt.Sprintf("%s-%s%s", base, c.Name(), ext)
+}
+
+func (*pixelatedConverter) Convert(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
 	pixelated := input + "-pixelated.jpg"
 	resized := input + "-resized" + path.Ext(input)
 	defer func() {
 		if err := os.Remove(pixelated); err != nil {
-			log.Fatalf("trying to delete pixelated: %s: %v", pixelated, err)
+			log.Printf("trying to delete pixelated: %s: %v", pixelated, err)
 		}
 		if err := os.Remove(resized); err != nil {
-			log.Fatalf("trying to delete resized: %s: %v", resized, err)
+			log.Printf("trying to delete resized: %s: %v", resized, err)
 		}
 	}()
 
@@ -33,7 +45,7 @@ func pixelatedConverter(input string, inputImage image.Image, opts ConvertOption
 	if err != nil {
 		return nil, errors.Errorf("loading image %s: %v", input, err)
 	}
-	pixelatedEffectsImg, err := effects.NewPixelate(opts.BlockSize()).Apply(img, 1)
+	pixelatedEffectsImg, err := effects.NewPixelate(opts.PixelateBlockSize()).Apply(img, 1)
 	if err != nil {
 		return nil, errors.Errorf("pixelating image %s: %v", input, err)
 	}
@@ -92,4 +104,8 @@ func pixelatedConverter(input string, inputImage image.Image, opts ConvertOption
 	outputImg = palettedImg
 
 	return outputImg, nil
+}
+
+func init() {
+	globalReg.Register(&pixelatedConverter{})
 }

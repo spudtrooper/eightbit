@@ -17,22 +17,24 @@ import (
 	"github.com/spudtrooper/goutil/or"
 )
 
-var AllConverters = []string{"pixelate", "overlap_mean", "overlap_median"}
+type Converter interface {
+	Convert(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error)
+	Name() string
+	OutputFileName(input string, opts ConvertOptions) string
+}
 
-type Converter func(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error)
-
-func Convert(input string, cOpts ...ConvertOption) error {
+func Convert(input string, cOpts ...ConvertOption) ([]string, error) {
 	opts := MakeConvertOptions(cOpts...)
 
 	switch ext := path.Ext(input); ext {
 	case ".png", ".jpg", ".jpeg":
 	default:
-		return errors.Errorf("invalid input image type: %s", input)
+		return nil, errors.Errorf("invalid input image type: %s", input)
 	}
 
 	inputImage, err := decode(input)
 	if err != nil {
-		return errors.Errorf("decoding input image: %s", input)
+		return nil, errors.Errorf("decoding input image: %s", input)
 	}
 
 	if opts.ColorHist() {
@@ -49,40 +51,41 @@ func Convert(input string, cOpts ...ConvertOption) error {
 
 	converters := opts.Converters()
 	if len(converters) == 1 && converters[0] == "all" {
-		converters = AllConverters
+		converters = globalReg.AllConverterNames()
 	}
 	if len(converters) == 0 {
 		if opts.ColorHist() {
-			return nil
+			return nil, nil
 		}
-		return errors.Errorf("you must specify at least one converter")
+		return nil, errors.Errorf("you must specify at least one converter")
 	}
 	if len(converters) > 1 && opts.OutputFile() != "" {
-		return errors.Errorf("you cannot specify an output with >1 converter")
+		return nil, errors.Errorf("you cannot specify an output with >1 converter")
 	}
 
-	for _, c := range converters {
-		output := or.String(opts.OutputFile(), makeOutput(input, opts.OutputDir(), c))
+	var outputs []string
+	for _, convName := range converters {
+		conv := globalReg.Get(convName)
+		if conv == nil {
+			return nil, errors.Errorf("invalid converter string: %s", convName)
+		}
+		output := or.String(opts.OutputFile(), makeOutput(conv, input, opts.OutputDir(), opts))
 		if !opts.Force() && io.FileExists(output) {
-			return errors.Errorf("%s exists. pass --force to write anyway", output)
+			return nil, errors.Errorf("%s exists. pass --force to write anyway", output)
 		}
-		if err := convertOne(inputImage, input, output, c, opts); err != nil {
-			return errors.Errorf("converting %s to %s: %v", input, output)
+		if err := convertOne(inputImage, input, output, conv, opts); err != nil {
+			return nil, errors.Errorf("converting %s to %s: %v", input, output)
 		}
+		outputs = append(outputs, output)
 	}
 
-	return nil
+	return outputs, nil
 }
 
-func convertOne(inputImage image.Image, input, output string, converterName string, opts ConvertOptions) error {
+func convertOne(inputImage image.Image, input, output string, conv Converter, opts ConvertOptions) error {
 	start := time.Now()
 
-	conv := makeConverter(converterName)
-	if conv == nil {
-		return errors.Errorf("invalid converter string: %s", converterName)
-	}
-
-	outputImg, err := conv(input, inputImage, opts)
+	outputImg, err := conv.Convert(input, inputImage, opts)
 	if err != nil {
 		return errors.Errorf("converting image: %v", err)
 	}
@@ -106,23 +109,10 @@ func convertOne(inputImage image.Image, input, output string, converterName stri
 	return nil
 }
 
-func makeOutput(input, outputDir, converter string) string {
+func makeOutput(c Converter, input, outputDir string, opts ConvertOptions) string {
 	dir := or.String(outputDir, path.Dir(input))
-	ext := path.Ext(input)
-	base := strings.Replace(path.Base(input), ext, "", 1)
-	return path.Join(dir, base+"-"+converter+ext)
-}
-
-func makeConverter(s string) Converter {
-	switch s {
-	case "pixelate":
-		return pixelatedConverter
-	case "overlap_mean":
-		return overlapMeanConverter
-	case "overlap_median":
-		return overlapMedianConverter
-	}
-	return nil
+	output := c.OutputFileName(input, opts)
+	return path.Join(dir, output)
 }
 
 func encode(output string, outputImg image.Image) error {
