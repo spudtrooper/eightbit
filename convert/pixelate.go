@@ -23,7 +23,7 @@ func (c *pixelatedConverter) OutputFileName(input string, opts ConvertOptions) s
 	return fmt.Sprintf("%s-%s%s", base, c.Name(), ext)
 }
 
-func (*pixelatedConverter) Convert(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
+func (*pixelatedConverter) Convert(input string, inputImage image.Image, opts ConvertOptions) (ConvertResult, error) {
 	pixelated := input + "-pixelated.jpg"
 	resized := input + "-resized" + path.Ext(input)
 	defer func() {
@@ -37,7 +37,7 @@ func (*pixelatedConverter) Convert(input string, inputImage image.Image, opts Co
 
 	// First resize the image to 1280,1280 so that we can apply the effects
 	resizedImage := resize.Resize(1280, 1280, inputImage, resize.Lanczos3)
-	if err := encode(resized, resizedImage); err != nil {
+	if err := encodeImage(resized, resizedImage); err != nil {
 		return nil, errors.Errorf("writing resized image to %s", resized)
 	}
 
@@ -103,7 +103,8 @@ func (*pixelatedConverter) Convert(input string, inputImage image.Image, opts Co
 	}
 	outputImg = palettedImg
 
-	return outputImg, nil
+	res := makeImageConvertResult(outputImg)
+	return res, nil
 }
 
 func init() {

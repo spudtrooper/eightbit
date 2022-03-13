@@ -3,6 +3,7 @@ package convert
 import (
 	"fmt"
 	"image"
+	"image/gif"
 	"image/jpeg"
 	"image/png"
 	"os"
@@ -11,17 +12,13 @@ import (
 	"time"
 
 	"github.com/nfnt/resize"
+	"github.com/noelyahan/impexp"
+	"github.com/noelyahan/mergi"
 	"github.com/pkg/errors"
 	"github.com/spudtrooper/goutil/hist"
 	"github.com/spudtrooper/goutil/io"
 	"github.com/spudtrooper/goutil/or"
 )
-
-type Converter interface {
-	Convert(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error)
-	Name() string
-	OutputFileName(input string, opts ConvertOptions) string
-}
 
 func Convert(input string, cOpts ...ConvertOption) ([]string, error) {
 	opts := MakeConvertOptions(cOpts...)
@@ -74,7 +71,7 @@ func Convert(input string, cOpts ...ConvertOption) ([]string, error) {
 			return nil, errors.Errorf("%s exists. pass --force to write anyway", output)
 		}
 		if err := convertOne(inputImage, input, output, conv, opts); err != nil {
-			return nil, errors.Errorf("converting %s to %s: %v", input, output)
+			return nil, errors.Errorf("converting %s to %s: %v", input, output, err)
 		}
 		outputs = append(outputs, output)
 	}
@@ -85,22 +82,26 @@ func Convert(input string, cOpts ...ConvertOption) ([]string, error) {
 func convertOne(inputImage image.Image, input, output string, conv Converter, opts ConvertOptions) error {
 	start := time.Now()
 
-	outputImg, err := conv.Convert(input, inputImage, opts)
+	outputImgRes, err := conv.Convert(input, inputImage, opts)
 	if err != nil {
 		return errors.Errorf("converting image: %v", err)
 	}
-	if outputImg == nil {
+	if outputImgRes == nil {
 		return errors.Errorf("converting image returned nil image")
 	}
 
 	if opts.ResizeWidth() != 0 && opts.ResizeHeight() != 0 {
-		outputImg = resize.Resize(opts.ResizeWidth(), opts.ResizeHeight(), outputImg, resize.Lanczos3)
+		outputImg := resize.Resize(opts.ResizeWidth(), opts.ResizeHeight(), outputImgRes.Image(), resize.Lanczos3)
+		outputImgRes = makeImageConvertResult(outputImg)
 	}
 
+	if !opts.Force() && io.FileExists(output) {
+		return errors.Errorf("%s exists. pass --force to write anyway", output)
+	}
 	if _, err := io.MkdirAll(path.Dir(output)); err != nil {
 		return errors.Errorf("making directory for %s", output)
 	}
-	if err := encode(output, outputImg); err != nil {
+	if err := encode(output, outputImgRes); err != nil {
 		return errors.Errorf("encoding image to %s: %v", output, err)
 	}
 
@@ -115,7 +116,21 @@ func makeOutput(c Converter, input, outputDir string, opts ConvertOptions) strin
 	return path.Join(dir, output)
 }
 
-func encode(output string, outputImg image.Image) error {
+func encode(output string, res ConvertResult) error {
+	if res.Image() != nil {
+		return encodeImage(output, res.Image())
+	}
+	if len(res.GIF().Image) > 0 {
+		return encodeGIF(output, res.GIF())
+	}
+	return errors.Errorf("no image in result")
+}
+
+func encodeGIF(output string, gif gif.GIF) error {
+	return mergi.Export(impexp.NewAnimationExporter(gif, output))
+}
+
+func encodeImage(output string, outputImg image.Image) error {
 	out, err := os.Create(output)
 	if err != nil {
 		return errors.Errorf("creating output image from %s: %v", output, err)

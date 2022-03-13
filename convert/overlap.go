@@ -14,31 +14,15 @@ import (
 	"github.com/thomaso-mirodin/intmath/intgr"
 )
 
-func overlapMeanConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
-	return genericOverlap(input, inputImage, opts, meanColor, true)
-}
-
-func overlapMedianConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
-	return genericOverlap(input, inputImage, opts, medianColor, true)
-}
-
-func blockMeanConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
-	return genericOverlap(input, inputImage, opts, meanColor, false)
-}
-
-func blockMedianConverter(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
-	return genericOverlap(input, inputImage, opts, medianColor, false)
-}
-
 type colorAggrFn func(inputImage image.Image, startY, endY, startX, endX int) color.Color
 
-func genericOverlap(input string, inputImage image.Image, opts ConvertOptions, aggr colorAggrFn, random bool) (image.Image, error) {
+func overlap(input string, inputImage image.Image, blockSize int, opts ConvertOptions, aggr colorAggrFn, random bool) (ConvertResult, error) {
 	minY, maxY := inputImage.Bounds().Min.Y, inputImage.Bounds().Max.Y
 	minX, maxX := inputImage.Bounds().Min.X, inputImage.Bounds().Max.X
 
 	outputImage := image.NewRGBA(image.Rect(minX, minY, maxX, maxY))
 
-	inc := or.Int(opts.BlockSize(), 10)
+	inc := or.Int(blockSize, 10)
 
 	colorHist := hist.MakeHistogram()
 
@@ -79,7 +63,8 @@ func genericOverlap(input string, inputImage image.Image, opts ConvertOptions, a
 		log.Println("Printing color histogram...\n" + hist.HistString(colorHist))
 	}
 
-	return outputImage, nil
+	res := makeImageConvertResult(outputImage)
+	return res, nil
 }
 
 func medianColor(inputImage image.Image, startY, endY, startX, endX int) color.Color {
@@ -157,15 +142,7 @@ func init() {
 	globalReg.Register(&pixelatedConverter{})
 }
 
-type overlapConverter struct {
-	name string
-	conv func(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error)
-}
-
-func (c *overlapConverter) Name() string { return c.name }
-func (c *overlapConverter) Convert(input string, inputImage image.Image, opts ConvertOptions) (image.Image, error) {
-	return c.conv(input, inputImage, opts)
-}
+type overlapConverter struct{ baseConverter }
 
 func (c *overlapConverter) OutputFileName(input string, opts ConvertOptions) string {
 	ext := path.Ext(input)
@@ -173,21 +150,45 @@ func (c *overlapConverter) OutputFileName(input string, opts ConvertOptions) str
 	return fmt.Sprintf("%s-%s-%04d%s", base, c.Name(), opts.BlockSize(), ext)
 }
 
+func overlapMean(input string, inputImage image.Image, opts ConvertOptions) (ConvertResult, error) {
+	return overlap(input, inputImage, opts.BlockSize(), opts, meanColor, true)
+}
+
+func overlapMedian(input string, inputImage image.Image, opts ConvertOptions) (ConvertResult, error) {
+	return overlap(input, inputImage, opts.BlockSize(), opts, medianColor, true)
+}
+
+func blockMean(input string, inputImage image.Image, opts ConvertOptions) (ConvertResult, error) {
+	return overlap(input, inputImage, opts.BlockSize(), opts, meanColor, false)
+}
+
+func blockMedian(input string, inputImage image.Image, opts ConvertOptions) (ConvertResult, error) {
+	return blockMedianFromBlockSize(input, inputImage, opts.BlockSize(), opts)
+}
+
+func blockMedianFromBlockSize(input string, inputImage image.Image, blockSize int, opts ConvertOptions) (ConvertResult, error) {
+	return overlap(input, inputImage, blockSize, opts, medianColor, false)
+}
+
 func init() {
 	globalReg.Register(&overlapConverter{
-		name: "overlap_mean",
-		conv: overlapMeanConverter,
-	})
+		baseConverter{
+			name: "overlap_mean",
+			conv: overlapMean,
+		}})
 	globalReg.Register(&overlapConverter{
-		name: "overlap_median",
-		conv: overlapMedianConverter,
-	})
+		baseConverter{
+			name: "overlap_median",
+			conv: overlapMedian,
+		}})
 	globalReg.Register(&overlapConverter{
-		name: "block_mean",
-		conv: blockMeanConverter,
-	})
+		baseConverter{
+			name: "block_mean",
+			conv: blockMean,
+		}})
 	globalReg.Register(&overlapConverter{
-		name: "block_median",
-		conv: blockMedianConverter,
-	})
+		baseConverter{
+			name: "block_median",
+			conv: blockMedian,
+		}})
 }
