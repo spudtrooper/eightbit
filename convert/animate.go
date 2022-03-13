@@ -19,15 +19,13 @@ type blockSizeRange struct {
 	start, end, step int
 }
 
+func (b blockSizeRange) String() string {
+	return fmt.Sprintf("blockSizeRange{start=%d end=%d step=%d}", b.start, b.end, b.step)
+}
+
 func MakeBlockSizeRange(start, end, step int) blockSizeRange {
 	return blockSizeRange{start: start, end: end, step: step}
 }
-
-func (b blockSizeRange) String() string {
-	return fmt.Sprintf("blockSizeRange{start=%d end=%d}", b.start, b.end)
-}
-
-type animateConverter struct{ baseConverter }
 
 func animateBlock(input string, inputImage image.Image, opts ConvertOptions) (ConvertResult, error) {
 	start, end, step := opts.AnimateBlockSizeRange().start, opts.AnimateBlockSizeRange().end, opts.AnimateBlockSizeRange().step
@@ -54,6 +52,7 @@ func animateBlock(input string, inputImage image.Image, opts ConvertOptions) (Co
 		blockSize int
 	}
 
+	// TODO: When I write to this channel, I get a deadlock. So write so an array guarded by a mutex.
 	var sortableImages []sortedImage
 	var imagesMu sync.Mutex
 	addImage := func(img image.Image, blockSize int) {
@@ -84,13 +83,10 @@ func animateBlock(input string, inputImage image.Image, opts ConvertOptions) (Co
 						continue
 					}
 					addImage(res.Image(), blockSize)
-					// TODO: When I write to this channel, I get a deadlock.
-					// imgs <- res.Image()
 				}
 			}()
 		}
 		wg.Wait()
-		// close(imgs)
 		close(errs)
 	}()
 
@@ -101,11 +97,6 @@ func animateBlock(input string, inputImage image.Image, opts ConvertOptions) (Co
 	if !ec.Empty() {
 		return nil, ec.Build()
 	}
-
-	// var images []image.Image
-	// for img := range imgs {
-	// 	images = append(images, img)
-	// }
 
 	if opts.AnimateReverse() {
 		sort.Slice(sortableImages, func(i, j int) bool {
@@ -129,6 +120,8 @@ func animateBlock(input string, inputImage image.Image, opts ConvertOptions) (Co
 	res := makeGIFConvertResult(gif)
 	return res, nil
 }
+
+type animateConverter struct{ baseConverter }
 
 func (c *animateConverter) OutputFileName(input string, opts ConvertOptions) string {
 	ext := path.Ext(input)
