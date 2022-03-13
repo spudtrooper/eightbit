@@ -60,7 +60,6 @@ func animateBlock(input string, inputImage image.Image, opts ConvertOptions) (Co
 		defer imagesMu.Unlock()
 		sortableImages = append(sortableImages, sortedImage{img, blockSize})
 	}
-	// imgs := make(chan image.Image)
 	errs := make(chan error)
 	go func() {
 		var cur int32
