@@ -11,11 +11,17 @@ import (
 	"github.com/markdaws/go-effects/pkg/effects"
 	"github.com/nfnt/resize"
 	"github.com/pkg/errors"
+	"github.com/spudtrooper/goutil/check"
 )
 
-type pixelatedConverter struct{}
+type convertPixelatedImageFn func(inputImage, pixelatedImg image.Image, pixelatedWidth, pixelatedHeight int) image.Image
 
-func (*pixelatedConverter) Name() string { return "pixelated" }
+type pixelatedConverter struct {
+	convertFn convertPixelatedImageFn
+	name      string
+}
+
+func (p *pixelatedConverter) Name() string { return p.name }
 
 func (c *pixelatedConverter) OutputFileName(input string, opts ConvertOptions) string {
 	ext := path.Ext(input)
@@ -23,7 +29,9 @@ func (c *pixelatedConverter) OutputFileName(input string, opts ConvertOptions) s
 	return fmt.Sprintf("%s-%s%s", base, c.Name(), ext)
 }
 
-func (*pixelatedConverter) Convert(input string, inputImage image.Image, opts ConvertOptions) (ConvertResult, error) {
+func (p *pixelatedConverter) Convert(input string, inputImage image.Image, opts ConvertOptions) (ConvertResult, error) {
+	check.Check(p.convertFn != nil, check.CheckMessage(fmt.Sprintf("%s converter has nil convert function", p.Name())))
+
 	pixelated := input + "-pixelated.jpg"
 	resized := input + "-resized" + path.Ext(input)
 	defer func() {
@@ -60,6 +68,27 @@ func (*pixelatedConverter) Convert(input string, inputImage image.Image, opts Co
 		return nil, errors.Errorf("encoding pixelated image %s: %v", pixelated, err)
 	}
 
+	outputImg := p.convertFn(inputImage, pixelatedImg, pixelatedEffectsImg.Width, pixelatedEffectsImg.Height)
+	res := makeImageConvertResult(outputImg)
+
+	return res, nil
+}
+
+func simpleConvert(inputImage, pixelatedImg image.Image, pixelatedWidth, pixelatedHeight int) image.Image {
+	minY, maxY := inputImage.Bounds().Min.Y, inputImage.Bounds().Max.Y
+	minX, maxX := inputImage.Bounds().Min.X, inputImage.Bounds().Max.X
+	outputImg := image.NewRGBA(image.Rect(minX, minY, maxX, maxY))
+	for y := pixelatedImg.Bounds().Min.Y; y < pixelatedImg.Bounds().Max.Y; y++ {
+		for x := pixelatedImg.Bounds().Min.X; x < pixelatedImg.Bounds().Max.X; x++ {
+			c := pixelatedImg.At(x, y)
+			outputImg.Set(x, y, c)
+		}
+	}
+
+	return outputImg
+}
+
+func websafeConvert(inputImage, pixelatedImg image.Image, pixelatedWidth, pixelatedHeight int) image.Image {
 	colorsForPalette := func() []color.Color {
 		var cols []color.Color
 		cols = append(cols,
@@ -91,22 +120,25 @@ func (*pixelatedConverter) Convert(input string, inputImage image.Image, opts Co
 		}
 		return cols
 	}
-
-	var outputImg image.Image
 	palette := color.Palette(colorsForPalette())
-	palettedImg := image.NewPaletted(image.Rect(0, 0, pixelatedEffectsImg.Width, pixelatedEffectsImg.Height), palette)
+	palettedImg := image.NewPaletted(image.Rect(0, 0, pixelatedWidth, pixelatedHeight), palette)
 	for y := pixelatedImg.Bounds().Min.Y; y < pixelatedImg.Bounds().Max.Y; y++ {
 		for x := pixelatedImg.Bounds().Min.X; x < pixelatedImg.Bounds().Max.X; x++ {
 			c := pixelatedImg.At(x, y)
 			palettedImg.Set(x, y, c)
 		}
 	}
-	outputImg = palettedImg
 
-	res := makeImageConvertResult(outputImg)
-	return res, nil
+	return palettedImg
 }
 
 func init() {
-	globalReg.Register(&pixelatedConverter{})
+	globalReg.Register(&pixelatedConverter{
+		convertFn: websafeConvert,
+		name:      "websafe_pixelated",
+	})
+	globalReg.Register(&pixelatedConverter{
+		convertFn: simpleConvert,
+		name:      "pixelated",
+	})
 }

@@ -138,10 +138,6 @@ func meanColor(inputImage image.Image, startY, endY, startX, endX int) color.Col
 	return mean
 }
 
-func init() {
-	globalReg.Register(&pixelatedConverter{})
-}
-
 type overlapConverter struct{ baseConverter }
 
 func (c *overlapConverter) OutputFileName(input string, opts ConvertOptions) string {
