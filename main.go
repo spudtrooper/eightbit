@@ -30,6 +30,7 @@ var (
 	animateBlockSizeEnd   = flag.Int("animate_block_size_end", 150, "end block size for animations")
 	animateBlockSizeStep  = flag.Int("animate_block_size_step", 1, "block size step for animations")
 	animateReverse        = flag.Bool("animate_reverse", false, "sort the images from higher block size to lower (i.e. reversed)")
+	except                = flag.String("except", "", "comma-delimited list of converters to skip; to be used with --converters all --except <foo>")
 )
 
 func realMain() error {
@@ -58,6 +59,7 @@ func realMain() error {
 		convert.ConvertResizeHeight(uint(*resizeWidth)),
 		convert.ConvertForce(*force),
 		convert.ConvertConverters(slice.Strings(*converters, ",")),
+		convert.ConvertExcept(slice.Strings(*except, ",")),
 		convert.ConvertColorHist(*colorHist),
 		convert.ConvertAnimateThreads(*animateThreads),
 		convert.ConvertAnimateBlockSizeRange(convert.MakeBlockSizeRange(*animateBlockSizeStart, *animateBlockSizeEnd, *animateBlockSizeStep)),

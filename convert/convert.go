@@ -18,6 +18,7 @@ import (
 	"github.com/spudtrooper/goutil/hist"
 	"github.com/spudtrooper/goutil/io"
 	"github.com/spudtrooper/goutil/or"
+	"github.com/spudtrooper/goutil/slice"
 )
 
 func Convert(input string, cOpts ...ConvertOption) ([]string, error) {
@@ -48,7 +49,11 @@ func Convert(input string, cOpts ...ConvertOption) ([]string, error) {
 
 	converters := opts.Converters()
 	if len(converters) == 1 && converters[0] == "all" {
-		converters = globalReg.AllConverterNames()
+		if len(opts.Except()) > 0 {
+			converters = slice.StringDiff(globalReg.AllConverterNames(), opts.Except())
+		} else {
+			converters = globalReg.AllConverterNames()
+		}
 	}
 	if len(converters) == 0 {
 		if opts.ColorHist() {

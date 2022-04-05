@@ -1,6 +1,6 @@
 package convert
 
-//go:generate genopts --prefix=Convert --outfile=convert/convertoptions.go "blockSize:int" "animateBlockSizeRange:blockSizeRange" "pixelateBlockSize:int" "resizeWidth:uint" "resizeHeight:uint" "force:bool" "converters:[]string" "outputDir:string" "outputFile:string" "colorHist:bool" "animateThreads:int" "animateReverse"
+//go:generate genopts --prefix=Convert --outfile=convertoptions.go "blockSize:int" "animateBlockSizeRange:blockSizeRange" "pixelateBlockSize:int" "resizeWidth:uint" "resizeHeight:uint" "force:bool" "converters:[]string" "except:[]string" "outputDir:string" "outputFile:string" "colorHist:bool" "animateThreads:int" "animateReverse"
 
 type ConvertOption func(*convertOptionImpl)
 
@@ -12,6 +12,7 @@ type ConvertOptions interface {
 	ResizeHeight() uint
 	Force() bool
 	Converters() []string
+	Except() []string
 	OutputDir() string
 	OutputFile() string
 	ColorHist() bool
@@ -96,6 +97,17 @@ func ConvertConvertersFlag(converters *[]string) ConvertOption {
 	}
 }
 
+func ConvertExcept(except []string) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.except = except
+	}
+}
+func ConvertExceptFlag(except *[]string) ConvertOption {
+	return func(opts *convertOptionImpl) {
+		opts.except = *except
+	}
+}
+
 func ConvertOutputDir(outputDir string) ConvertOption {
 	return func(opts *convertOptionImpl) {
 		opts.outputDir = outputDir
@@ -159,6 +171,7 @@ type convertOptionImpl struct {
 	resizeHeight          uint
 	force                 bool
 	converters            []string
+	except                []string
 	outputDir             string
 	outputFile            string
 	colorHist             bool
@@ -173,6 +186,7 @@ func (c *convertOptionImpl) ResizeWidth() uint                     { return c.re
 func (c *convertOptionImpl) ResizeHeight() uint                    { return c.resizeHeight }
 func (c *convertOptionImpl) Force() bool                           { return c.force }
 func (c *convertOptionImpl) Converters() []string                  { return c.converters }
+func (c *convertOptionImpl) Except() []string                      { return c.except }
 func (c *convertOptionImpl) OutputDir() string                     { return c.outputDir }
 func (c *convertOptionImpl) OutputFile() string                    { return c.outputFile }
 func (c *convertOptionImpl) ColorHist() bool                       { return c.colorHist }
